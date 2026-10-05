@@ -579,7 +579,10 @@ function updateFooter() {
   const answered = Object.values(ss.results).length;
   $('#pline').style.width = `${(answered / n) * 100}%`;
   $('#bPrev').disabled = ss.i === 0;
-  $('#bNext').textContent = ss.i >= n - 1 ? 'Finish' : 'Next';
+  // On the end-of-set summary, the primary button leads back to the dashboard.
+  const done = ss.i >= n;
+  $('#bNext').textContent = done ? 'Dashboard' : ss.i >= n - 1 ? 'Finish' : 'Next';
+  $('#bNext').dataset.act = done ? 'home' : 'next';
   renderNav();
 }
 
@@ -900,7 +903,10 @@ function go(i) {
   }
   showQuestion(i);
 }
-const next = () => go(store.session.i + 1);
+const next = () => {
+  if (store.session.i >= store.session.qs.length) location.hash = '#/'; // already on the summary
+  else go(store.session.i + 1);
+};
 const prev = () => go(Math.min(store.session.i, store.session.qs.length) - 1);
 
 function renderSummary() {
