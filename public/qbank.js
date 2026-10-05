@@ -37,6 +37,16 @@ export async function fetchList(exam, section) {
   }));
 }
 
+// ---------- active questions ----------
+// College Board flags some questions as "active" (live). Its own question bank lets you exclude them;
+// the lookup feed lists their external ids.
+export async function fetchActive() {
+  const r = await fetch(`${API}/lookup`);
+  if (!r.ok) throw new Error(`College Board API ${r.status}`);
+  const j = await r.json();
+  return [...(j.mathLiveItems || []), ...(j.readingLiveItems || [])];
+}
+
 // ---------- single questions ----------
 function htmlToText(html) {
   return html

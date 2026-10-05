@@ -657,12 +657,12 @@ kbd {
 }
 
 /* filter bar: three labelled columns, every control the same height */
-.filters { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 16px 40px; padding: 18px 22px; }
+.filters { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px 40px; padding: 18px 22px; }
 .filters .group { flex-direction: column; align-items: flex-start; gap: 8px; }
 .filters .seg button { height: 34px; padding: 0 14px; display: inline-flex; align-items: center; }
 .seg .dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; flex: none; }
 .seg button.on .dot { box-shadow: 0 0 0 1.5px var(--on-accent); }
-@media (max-width: 760px) { .filters { grid-template-columns: 1fr; } }
+
 
 /* practice header: timer sits dead-center regardless of title / tool widths */
 .pbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; }

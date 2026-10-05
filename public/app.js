@@ -1,4 +1,4 @@
-import { EXAMS as BANK_NAMES, QVERSION, fetchList, fetchQuestion } from './qbank.js';
+import { EXAMS as BANK_NAMES, QVERSION, fetchActive, fetchList, fetchQuestion } from './qbank.js';
 
 /* ================= constants ================= */
 const DESMOS_URL = 'https://www.desmos.com/api/v1.12/calculator.js?apiKey=1b76be0135fc4871965355a8517415ea';
@@ -140,7 +140,7 @@ const store = (() => {
   s.days ||= {};
   s.session ||= null;
   s.settings = Object.assign(
-    { theme: document.documentElement.dataset.theme, exam: '99', diff: ['E', 'M', 'H'], status: 'all', size: 'all', calcW: 460, timerHidden: false },
+    { theme: document.documentElement.dataset.theme, exam: '99', diff: ['E', 'M', 'H'], status: 'all', size: 'all', active: 'include', calcW: 460, timerHidden: false },
     s.settings || {}
   );
   return s;
@@ -201,15 +201,28 @@ async function loadBank(exam) {
   S.bankErr = null;
   if (S.view === 'home') renderHome();
   try {
-    const [rw, math] = await Promise.all([1, 2].map((sec) => cached(`list-${exam}-${sec}`, LIST_TTL, () => fetchList(exam, sec))));
+    const [rw, math, active] = await Promise.all([
+      ...[1, 2].map((sec) => cached(`list-${exam}-${sec}`, LIST_TTL, () => fetchList(exam, sec))),
+      cached('active', LIST_TTL, fetchActive).catch(() => []), // optional: without it nothing is marked active
+    ]);
     if (store.settings.exam !== exam) return;
-    rw.forEach((q) => (q.sec = 'rw'));
-    math.forEach((q) => (q.sec = 'math'));
-    S.bank = { exam, name: BANK_NAMES[exam], rw, math, tree: buildTree(rw, math) };
+    const live = new Set(active);
+    rw.forEach((q) => { q.sec = 'rw'; q.active = !!q.ext && live.has(q.ext); });
+    math.forEach((q) => { q.sec = 'math'; q.active = !!q.ext && live.has(q.ext); });
+    S.raw = { exam, rw, math };
+    applyBank();
   } catch (e) {
     S.bankErr = e.message;
   }
   if (S.view === 'home') renderHome();
+}
+
+// The visible bank honors the "Active questions" filter, so counts, skill sets, mixed sets and reviews all agree.
+function applyBank() {
+  const { exam, rw, math } = S.raw;
+  const keep = (q) => store.settings.active !== 'exclude' || !q.active;
+  const r = rw.filter(keep), m = math.filter(keep);
+  S.bank = { exam, name: BANK_NAMES[exam], rw: r, math: m, tree: buildTree(r, m), activeCount: rw.concat(math).filter((q) => q.active).length };
 }
 
 function buildTree(rw, math) {
@@ -347,6 +360,9 @@ function homeBody() {
       </div>
       <div class="group"><span>Show</span>
         <div class="seg">${[['all', 'All'], ['new', 'Unanswered'], ['missed', 'Missed'], ['flagged', 'Flagged']].map(([v, l]) => `<button class="${st.status === v ? 'on' : ''}" data-set="status:${v}">${l}</button>`).join('')}</div>
+      </div>
+      <div class="group"><span title="College Board marks some questions as active (currently in use). Its own question bank lets you leave them out.">Active questions</span>
+        <div class="seg">${[['include', 'Include'], ['exclude', 'Exclude']].map(([v, l]) => `<button class="${st.active === v ? 'on' : ''}" data-set="active:${v}" title="${v === 'exclude' ? `Hide the ${b.activeCount.toLocaleString()} active questions in this exam` : 'Show every question'}">${l}</button>`).join('')}</div>
       </div>
       <div class="group"><span>Set size</span>
         <div class="seg">${['10', '20', '40', 'all'].map((v) => `<button class="${st.size === v ? 'on' : ''}" data-set="size:${v}">${v === 'all' ? 'All' : v}</button>`).join('')}</div>
@@ -1128,6 +1144,7 @@ app.addEventListener('click', (e) => {
       if (!st.diff.length) st.diff = [v];
     } else st[k] = v;
     save();
+    if (k === 'active' && S.raw) applyBank();
     return renderHome();
   }
   switch (d.act) {
